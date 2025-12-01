@@ -14,16 +14,23 @@ function App() {
   const [currentChatId, setCurrentChatId] = useState(null);
   const [currentMessages, setCurrentMessages] = useState([]);
 
-  useEffect(() => {
-    const isDark = localStorage.theme === 'dark' || 
-      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    setDarkMode(isDark);
-    
-    const savedSessions = localStorage.getItem('orbix_chat_sessions');
-    if (savedSessions) {
-      setChatSessions(JSON.parse(savedSessions));
-    }
-  }, []);
+   useEffect(() => {
+  // Dark mode as default
+  const isDark = localStorage.theme === 'dark' || !('theme' in localStorage);
+  setDarkMode(isDark);
+  
+  if (isDark) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  const savedSessions = localStorage.getItem('orbix_chat_sessions');
+  if (savedSessions) {
+    setChatSessions(JSON.parse(savedSessions));
+  }
+}, []);
+
 
   const toggleDarkMode = () => {
     if (darkMode) {

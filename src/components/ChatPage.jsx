@@ -6,12 +6,49 @@ const ChatPage = ({ currentMessages, onSendMessage }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const chatRef = useRef(null);
+  const textareaRef = useRef(null);
+  const userScrolled = useRef(false);
+  const isFirstMessage = useRef(true);
+
+  // Auto-resize textarea
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    textarea.style.height = 'auto';
+    const newHeight = Math.min(textarea.scrollHeight, 160); // Max 160px
+    textarea.style.height = newHeight + 'px';
+  };
 
   useEffect(() => {
-    if (chatRef.current) {
+    adjustTextareaHeight();
+  }, [inputText]);
+
+  // Smart scroll: first message → top, rest → bottom
+  useEffect(() => {
+    if (!chatRef.current || currentMessages.length === 0) return;
+    
+    if (currentMessages.length === 1 && isFirstMessage.current) {
+      // First message: scroll to top
       chatRef.current.scrollTop = 0;
+      isFirstMessage.current = false;
+    } else if (currentMessages.length > 1 && !userScrolled.current) {
+      // Subsequent messages: scroll to bottom
+      setTimeout(() => {
+        if (chatRef.current) {
+          chatRef.current.scrollTop = chatRef.current.scrollHeight;
+        }
+      }, 100);
     }
   }, [currentMessages]);
+
+  // Track user scroll
+  const handleScroll = () => {
+    if (!chatRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    userScrolled.current = !isAtBottom;
+  };
 
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
@@ -36,7 +73,7 @@ const ChatPage = ({ currentMessages, onSendMessage }) => {
       
       onSendMessage(userInput, aiResponse);
     } catch (error) {
-      const errorMsg = "❌ Connection Error: " + error.message + "\n\nMake sure backend is running on http://localhost:5140";
+      const errorMsg = "❌ Connection Error: " + error.message + "\n\nMake sure backend is running.";
       onSendMessage(userInput, errorMsg);
     } finally {
       setIsLoading(false);
@@ -53,6 +90,7 @@ const ChatPage = ({ currentMessages, onSendMessage }) => {
     <div className="flex-1 flex flex-col overflow-hidden">
       <div 
         ref={chatRef}
+        onScroll={handleScroll}
         className={`flex-1 ${currentMessages.length > 0 ? 'overflow-y-auto' : 'overflow-hidden flex items-center justify-center'}`}
       >
         <div className="w-full max-w-4xl mx-auto px-6 py-8">
@@ -93,25 +131,34 @@ const ChatPage = ({ currentMessages, onSendMessage }) => {
           )}
 
           {currentMessages.map((msg, index) => (
-            <div key={index} className="mb-8 animate-fade-in">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+            <div key={index} className="mb-10 animate-fade-in">
+              {/* User Message */}
+              <div className="mb-6">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">You</span>
                 </div>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">You</span>
-              </div>
-              <div className="ml-9 p-4 rounded-xl bg-gray-100 dark:bg-white/[0.05] border border-gray-200 dark:border-white/[0.08]">
-                <p className="text-gray-800 dark:text-gray-200 text-[15px] leading-relaxed whitespace-pre-wrap">
-                  {msg.userInput}
-                </p>
+                <div className="ml-9 p-5 rounded-xl bg-gray-100 dark:bg-white/[0.05] border border-gray-200 dark:border-white/[0.08]">
+                  <p className="text-gray-800 dark:text-gray-200 text-[15px] leading-relaxed whitespace-pre-wrap">
+                    {msg.userInput}
+                  </p>
+                </div>
               </div>
 
-              <div className="mt-6 mb-3 flex items-center justify-between">
+              {/* AI Response */}
+              <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Logo size="md" />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">ORBIX</span>
+                  <div className="w-7 h-7 flex-shrink-0">
+                    <Logo size="md" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">ORBIX AI</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">• Powered by Llama 3.1 Free-tier</span>
+                  </div>
                 </div>
                 <button
                   onClick={() => handleCopy(msg.aiResponse)}
@@ -134,7 +181,7 @@ const ChatPage = ({ currentMessages, onSendMessage }) => {
                   )}
                 </button>
               </div>
-              <div className="ml-9 p-6 rounded-2xl bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-[#141414] dark:via-[#111111] dark:to-[#0d0d0d] border-2 border-gray-300 dark:border-white/[0.12] shadow-xl">
+              <div className="ml-9 p-6 rounded-2xl bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-[#141414] dark:via-[#111111] dark:to-[#0d0d0d] border-2 border-gray-300 dark:border-white/[0.12] shadow-lg">
                 <p className="text-gray-800 dark:text-gray-200 text-[15px] leading-relaxed whitespace-pre-wrap">
                   {msg.aiResponse}
                 </p>
@@ -143,12 +190,14 @@ const ChatPage = ({ currentMessages, onSendMessage }) => {
           ))}
 
           {isLoading && (
-            <div className="mb-8 animate-fade-in">
+            <div className="mb-10 animate-fade-in">
               <div className="mb-3 flex items-center gap-2">
-                <Logo size="md" />
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">ORBIX</span>
+                <div className="w-7 h-7 flex-shrink-0">
+                  <Logo size="md" />
+                </div>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">ORBIX AI</span>
               </div>
-              <div className="ml-9 p-6 rounded-2xl bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-[#141414] dark:via-[#111111] dark:to-[#0d0d0d] border-2 border-gray-300 dark:border-white/[0.12] shadow-xl">
+              <div className="ml-9 p-6 rounded-2xl bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-[#141414] dark:via-[#111111] dark:to-[#0d0d0d] border-2 border-gray-300 dark:border-white/[0.12] shadow-lg">
                 <div className="flex items-center gap-3">
                   <svg className="w-5 h-5 text-gray-600 dark:text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -161,10 +210,12 @@ const ChatPage = ({ currentMessages, onSendMessage }) => {
         </div>
       </div>
 
+      {/* Compact Auto-Resize Input */}
       <div className="border-t border-gray-300 dark:border-white/[0.1] bg-white/70 dark:bg-[#0d0d0d]/70 backdrop-blur-xl flex-shrink-0">
-        <div className="max-w-4xl mx-auto px-6 py-6">
+        <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="relative">
             <textarea
+              ref={textareaRef}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => {
@@ -173,26 +224,41 @@ const ChatPage = ({ currentMessages, onSendMessage }) => {
                   handleSend();
                 }
               }}
-              placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
-              className="w-full min-h-[120px] max-h-[300px] px-5 py-4 pr-14 rounded-2xl border-2 border-gray-300 dark:border-white/[0.15] bg-white dark:bg-[#141414] text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-gray-400 dark:focus:border-white/[0.3] resize-none text-[15px] leading-relaxed transition-all duration-200 shadow-lg"
+              placeholder="Message ORBIX..."
+              rows={1}
+              style={{ 
+                minHeight: '44px',
+                maxHeight: '160px',
+                resize: 'none',
+                overflowY: inputText.split('\n').length > 2 ? 'auto' : 'hidden'
+              }}
+              className="w-full px-4 py-2.5 pr-12 rounded-2xl border-2 border-gray-300 dark:border-white/[0.15] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-gray-400 dark:focus:border-white/[0.3] text-[15px] leading-relaxed transition-all duration-200 shadow-md"
             />
             <button
               onClick={handleSend}
               disabled={!inputText.trim() || isLoading}
-              className="absolute right-3 bottom-3 w-11 h-11 flex items-center justify-center rounded-xl bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 hover:shadow-2xl hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
+              className="absolute right-2 bottom-2 w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 hover:shadow-lg hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
             >
               {isLoading ? (
-                <svg className="w-5 h-5 text-white dark:text-black animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-white dark:text-black animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5 text-white dark:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-white dark:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                 </svg>
               )}
             </button>
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+            Press Enter to send • Shift+Enter for new line
+          </p>
         </div>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center py-3 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-white/[0.05]">
+        Powered by Llama 3.1 (Free Tier) • ORBIX v1.0
       </div>
     </div>
   );
