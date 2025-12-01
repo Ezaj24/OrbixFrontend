@@ -42,7 +42,7 @@ const RefinePage = () => {
   setOutputText("");
 
   try {
-    const response = await fetch("http://localhost:5140/refine", {
+    const response = await fetch("https://orbixbackendv1.onrender.com/refine", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
